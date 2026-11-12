@@ -1,0 +1,45 @@
+/* The demo page around the stage. The stage's own styles are in stage.css (as on the wedding site). */
+:root {
+  --dusk-rose: #B48A93; --heather: #9E7F8E; --bg-soft: #FAF8F6; --blush-wash: #FCF3F4; --sage-wash: #F4F7F5;
+  --ink: #2E3532; --ink-soft: #626A66; --primary: #5A6964; --accent-text: #7E5F6E; --line: #ECE7E2;
+  --shadow: 0 18px 40px -28px rgba(52, 62, 58, .45);
+  --font-script: 'Pinyon Script', cursive; --font-title: 'Playfair Display', Georgia, serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --out: cubic-bezier(.22, .61, .36, 1); --io: cubic-bezier(.65, 0, .35, 1);
+  --gut: clamp(16px, 5vw, 24px); --wide: 1100px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--blush-wash); color: var(--ink); font: 400 17px/1.65 var(--font-body); }
+a { color: var(--accent-text); text-underline-offset: 3px; }
+h1, h2, h3 { margin: 0; font-family: var(--font-title); font-weight: 400; color: var(--primary); text-wrap: balance; }
+.top, .try, .how, .facts, .foot { width: min(100% - 2 * var(--gut), 820px); margin-inline: auto; }
+.top { padding: clamp(36px, 8vw, 72px) 0 12px; text-align: center; }
+.eyebrow { margin: 0 0 14px; font: 600 13px/1.4 var(--font-body); letter-spacing: .22em; text-transform: uppercase; color: var(--accent-text); }
+h1 { font-size: clamp(2rem, 6.4vw, 3.2rem); line-height: 1.12; }
+h1 span { display: block; margin-top: .05em; font: 400 1.35em/1.1 var(--font-script); color: var(--accent-text); }
+.lead { max-width: 40em; margin: 18px auto 0; color: var(--ink); text-wrap: pretty; }
+.lead.small { margin-top: 10px; font-size: 15.5px; color: var(--ink-soft); }
+#dresscode { padding: 18px 0 6px; }
+.wearing { width: min(100% - 2 * var(--gut), var(--wide)); min-height: 3em; margin: 12px auto 0; text-align: center; font-size: 15px; line-height: 1.5; color: var(--ink-soft); text-wrap: balance; }
+.nogl { width: min(100% - 2 * var(--gut), 820px); margin: 0 auto 12px; text-align: center; color: var(--ink-soft); }
+.nogl-pic { display: block; width: min(100% - 2 * var(--gut), 897px); height: auto; margin: 0 auto; border-radius: 14px; }
+.nogl[hidden], .nogl-pic[hidden] { display: none; }
+h2 { margin: clamp(40px, 8vw, 64px) 0 14px; font-size: clamp(1.5rem, 4.4vw, 2rem); text-align: center; }
+.try ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.try li { padding: 14px 2px; border-bottom: 1px solid var(--line); }
+.how .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.how article { padding: 20px 20px 18px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px var(--line), var(--shadow); }
+.how h3 { font-size: 1.25rem; }
+.how p { margin: 8px 0 0; font-size: 15.5px; line-height: 1.6; color: var(--ink-soft); }
+.facts dl { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; }
+.facts dl > div { padding: 18px 12px; border-radius: 14px; background: var(--sage-wash); text-align: center; }
+.facts dt { font: 400 2rem/1.1 var(--font-title); color: var(--primary); }
+.facts dd { margin: 6px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--ink-soft); }
+.foot { padding: clamp(40px, 8vw, 64px) 0 48px; text-align: center; font-size: 15px; color: var(--ink-soft); }
+.foot p { margin: 0; }
+.foot .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 14px; margin-top: 16px; }
+.foot .links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--primary); color: var(--primary); font-weight: 600; text-decoration: none; }
+.foot .links a#coffee { background: var(--primary); color: #fff; }
+.foot .links a[hidden] { display: none; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

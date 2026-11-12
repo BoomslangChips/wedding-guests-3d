@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twelve wedding guests in 3D, with no 3D library</title>
+<meta name="description" content="The dress-code lookbook of a wedding website: twelve 3D guests who breathe, glance around, fold their arms and try on colours. Plain JavaScript and WebGL, no engine and no library.">
+<meta property="og:title" content="Twelve wedding guests in 3D, with no 3D library">
+<meta property="og:description" content="A wedding website's dress-code lookbook: living 3D guests in about 250 KB of plain JavaScript and WebGL.">
+<meta property="og:image" content="docs/three-days.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2715%27 fill=%27%23B48A93%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="demo.css">
+<link rel="stylesheet" href="stage.css">
+</head>
+<body>
+<header class="top">
+  <p class="eyebrow">Jean &amp; Shani · Dullstroom · March 2027</p>
+  <h1>Twelve wedding guests, <span>made of code</span></h1>
+  <p class="lead">This is the “What to wear” page of our wedding website. Instead of a list of dress codes, twelve guests show what to wear on each day. They breathe, shift their weight, look around, fold their arms, and you can turn them and try the wedding colours on them.</p>
+  <p class="lead small">No game engine and no 3D library: about 250 KB of plain JavaScript and WebGL, and one 760 KB file for the bodies.</p>
+</header>
+
+<main>
+  <section id="dresscode" aria-label="The guests">
+    <div class="dc-stage is-wait" id="stage" role="group" aria-label="The looks in the round: turn a guest with a finger or the arrow keys, or step closer">
+      <div class="dc-stage__view"><p class="dc-stage__wait">The guests are getting dressed&hellip;</p></div>
+      <p class="dc-stage__hint">Drag a guest to turn them <span aria-hidden="true">&middot;</span> tap one to step closer</p>
+    </div>
+    <p class="wearing" id="wearing" aria-live="polite"></p>
+    <p class="nogl" id="nogl" hidden>This demo needs WebGL, which this browser or device does not offer. Here is what it looks like:</p>
+    <img class="nogl-pic" id="noglPic" src="docs/three-days.png" alt="Three rows of four 3D wedding guests: Friday smart casual, Saturday semi-formal, Sunday relaxed" hidden>
+  </section>
+
+  <section class="try">
+    <h2>Things to try</h2>
+    <ul>
+      <li><strong>Switch the day</strong> with Friday, Saturday and Sunday: smart casual, the wedding, a relaxed Sunday.</li>
+      <li><strong>Drag a guest</strong> to turn them all the way round. Skirts and long hair swing and settle.</li>
+      <li><strong>Tap a guest</strong> to step closer, then <strong>try a colour</strong> from the wedding palette on them.</li>
+      <li><strong>Leave them alone</strong> for a while: they fold their arms, put a hand on a hip, glance at each other.</li>
+    </ul>
+  </section>
+
+  <section class="how">
+    <h2>How it works</h2>
+    <div class="cards">
+      <article><h3>Real bodies</h3><p>The bodies come from the <a href="http://www.makehumancommunity.org/">MakeHuman</a> base mesh (public domain): three body shapes with 163 bones and their skin weights, packed into one file. Every guest is posed and scaled a little differently, so no two are the same size.</p></article>
+      <article><h3>Clothes cut in code</h3><p>Jackets with lapels and cuffs, shirts, knits, jeans with top-stitching, dresses, shoes made on lasts: each garment is a surface built round the body it is worn on, so it fits that body and nothing pokes through.</p></article>
+      <article><h3>Cloth that moves</h3><p>Skirts and long hair are small position-based cloth simulations. Turn a guest quickly and the dress swings out, lags and settles. On a slow phone the cloth simply rests.</p></article>
+      <article><h3>A little life</h3><p>Each guest has a small mind: they breathe, shift their weight, look at you, at a neighbour, or away; eyes first, head after. They blink, and smile when you step up to them.</p></article>
+      <article><h3>Arms that rest on things</h3><p>Folded arms, a hand on a hip, hands held in front: each pose is solved on that guest’s own body and clothes, so a hand lies on the hip or on the other hand, never in it. The way from one pose to the next is checked along its whole length.</p></article>
+      <article><h3>Light and pacing</h3><p>One key light with a soft shadow map, a faint reflection on the floor. The stage watches its own frame time and does less on slower devices, and nothing moves for people who ask for reduced motion.</p></article>
+    </div>
+  </section>
+
+  <section class="facts">
+    <h2>In numbers</h2>
+    <dl>
+      <div><dt>12</dt><dd>guests, four for each day</dd></div>
+      <div><dt>0</dt><dd>libraries or engines</dd></div>
+      <div><dt>~250 KB</dt><dd>of JavaScript, unminified</dd></div>
+      <div><dt>WebGL 1</dt><dd>so it runs on old phones too</dd></div>
+    </dl>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Made for our wedding by Jean Wentzel, written with <a href="https://claude.com/claude-code">Claude Code</a>. Free to use under the MIT licence.</p>
+  <p class="links"><a href="https://demo.wentzel.wedding/">See the whole wedding site (demo, code DEMO)</a><a id="source" href="https://github.com/">Source on GitHub</a><a id="coffee" href="#" hidden>Buy me a coffee</a></p>
+</footer>
+
+<script src="js/atelier-core.js"></script>
+<script src="js/atelier-body.js"></script>
+<script src="js/atelier-cloth.js"></script>
+<script src="js/atelier-figure.js"></script>
+<script src="js/atelier-stage.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>

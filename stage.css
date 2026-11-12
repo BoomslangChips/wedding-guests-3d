@@ -1,0 +1,54 @@
+/* The stage's own styles, as on the wedding site (cut out of its dress.css by make.py). */
+/* ------------------------------------------------------------------ the stage (the looks in 3D, atelier-*.js)
+   A canvas the figures stand on, the day's name in script, a tab for each day, a number under each figure, and
+   (close to one figure) a card with what it wears and, on Saturday, the palette to try on it. app.js adds the
+   stage only where WebGL is available; without it the drawn plates stay. */
+#dresscode .dc-stage__view { position: relative; height: clamp(410px, 112vw, 480px); }
+#dresscode .dc-stage { position: relative; width: min(100% - 2 * var(--gut, 16px), var(--wide, 1100px)); margin: 10px auto 0; border-radius: 18px; overflow: hidden; isolation: isolate;
+  background: radial-gradient(90% 34% at 50% 97%, rgba(120, 96, 92, .13), transparent 72%), linear-gradient(#f7ecee, #fcf6f4 50%, #f3e9e4 78%, #efe4de);
+  border: 1px solid var(--line); box-shadow: var(--shadow); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#dresscode .dc-stage[data-day="fri"] { background: radial-gradient(90% 34% at 50% 97%, rgba(96, 70, 60, .16), transparent 72%), linear-gradient(#e9e1ec, #f6ebe6 52%, #f3e2d2 80%, #ecd8c6); }
+#dresscode .dc-stage[data-day="sun"] { background: radial-gradient(90% 34% at 50% 97%, rgba(90, 105, 100, .12), transparent 72%), linear-gradient(#eef4f3, #f9f8f4 52%, #f1ede4 80%, #ebe5da); }
+#dresscode .dc-stage__wait { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; font: italic 400 15px/1.4 var(--font-body); color: var(--ink-soft); opacity: .75; }
+#dresscode .dc-stage__canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; }
+#dresscode .dc-stage__canvas:active { cursor: grabbing; }
+/* (the day in script only where there is room beside the tabs: not on a phone) */
+#dresscode .dc-stage__day { display: none; position: absolute; left: 18px; top: 10px; margin: 0; font: 400 44px/1 var(--font-script); color: var(--accent-text); pointer-events: none; }
+#dresscode .dc-stage__tabs { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+#dresscode .dc-stage__tab { min-width: 54px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, .86); font: 600 15px/1 var(--font-body); color: var(--accent-text); cursor: pointer; }
+#dresscode .dc-stage__tab span { display: none; }
+#dresscode .dc-stage__tab.is-on { background: var(--primary); border-color: var(--primary); color: #fff; }
+#dresscode .dc-stage__marks { list-style: none; margin: 0; padding: 0; position: absolute; left: 0; top: 0; }
+#dresscode .dc-stage__marks li { position: absolute; left: 0; top: 0; transition: opacity 260ms var(--out); }
+#dresscode .dc-stage__marks button { position: absolute; left: -22px; top: -6px; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; background: none; font: italic 400 16px/1 var(--font-title); color: var(--primary); cursor: pointer; }
+#dresscode .dc-stage__marks button::before { content: ''; position: absolute; inset: 8px; z-index: -1; border-radius: 50%; background: rgba(255, 255, 255, .9); border: 1px solid var(--line); }
+#dresscode .dc-stage.is-close .dc-stage__marks { pointer-events: none; }
+#dresscode .dc-stage__hint { margin: 0; padding: 10px 14px 11px; text-align: center; font: 500 14px/1.35 var(--font-body); color: var(--ink-soft); background: rgba(255, 255, 255, .72); border-top: 1px solid var(--line); }
+#dresscode .dc-stage.is-close .dc-stage__hint { display: none; }
+#dresscode .dc-stage__card { padding: 8px 8px 6px; background: rgba(255, 255, 255, .94); border-top: 1px solid var(--line); }
+#dresscode .dc-stage__card[hidden] { display: none; }
+#dresscode .dc-stage__head { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 4px; }
+#dresscode .dc-stage__head button { width: 44px; height: 44px; padding: 0 0 3px; border: 1px solid var(--line); border-radius: 50%; background: #fff; font: 400 22px/1 var(--font-body); color: var(--primary); cursor: pointer; }
+#dresscode .dc-stage__what { margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; font: 400 17px/1.25 var(--font-title); color: var(--primary); }
+#dresscode .dc-stage__n { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--dusk-rose); font: italic 400 14px/1 var(--font-title); color: var(--accent-text); }
+#dresscode .dc-stage__try { font: 500 13px/1.2 var(--font-body); color: var(--ink-soft); }
+#dresscode .dc-stage__sws { display: flex; justify-content: center; gap: 0; margin: 2px -4px 0; overflow-x: auto; scrollbar-width: none; }
+#dresscode .dc-stage__sws::-webkit-scrollbar { display: none; }
+#dresscode .dc-stage__sw { position: relative; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+#dresscode .dc-stage__sw::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(46, 53, 50, .14); }
+#dresscode .dc-stage__sw.is-on::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; border: 1.5px solid var(--primary); }
+#dresscode .dc-stage__nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px 0 10px; }
+#dresscode .dc-stage__nav button { min-width: 44px; min-height: 44px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font: 600 15px/1 var(--font-body); color: var(--primary); cursor: pointer; }
+#dresscode .dc-stage :is(button):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (min-width: 600px) {
+  #dresscode .dc-stage__view { height: 520px; }
+  #dresscode .dc-stage__day { display: block; left: 26px; top: 14px; font-size: 54px; }
+  #dresscode .dc-stage__tabs { right: 16px; top: 16px; }
+  #dresscode .dc-stage__tab span { display: inline; }
+}
+@media (min-width: 900px) {
+  #dresscode .dc-stage__view { height: 560px; }
+  #dresscode .dc-stage__card { position: absolute; left: 30px; top: 50%; width: 330px; transform: translateY(-50%); padding: 14px 14px 10px; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+  #dresscode .dc-stage__what { font-size: 20px; }
+  #dresscode .dc-stage__sws { flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+}

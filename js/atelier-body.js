@@ -62,6 +62,7 @@
     a[6] * b[0] + a[7] * b[3] + a[8] * b[6], a[6] * b[1] + a[7] * b[4] + a[8] * b[7], a[6] * b[2] + a[7] * b[5] + a[8] * b[8]];
   const app3 = (m, p) => [m[0] * p[0] + m[1] * p[1] + m[2] * p[2], m[3] * p[0] + m[4] * p[1] + m[5] * p[2], m[6] * p[0] + m[7] * p[1] + m[8] * p[2]];
   const I3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  const tr3 = (m) => [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];      // (a turn undone)
   // the rotation about `axis` (a unit vector) by `ang`
   const axis3 = (ax, ang) => { const c = Math.cos(ang), s = Math.sin(ang), t = 1 - c, [x, y, z] = ax; return [t * x * x + c, t * x * y - s * z, t * x * z + s * y, t * x * y + s * z, t * y * y + c, t * y * z - s * x, t * x * z - s * y, t * y * z + s * x, t * z * z + c]; };
   // the shortest turn that takes direction a to direction b
@@ -79,11 +80,17 @@
     const head = (name) => { const i = B.bi[name] * 3; return [heads[i], heads[i + 1], heads[i + 2]]; };
     const world = (i, p) => V.add(app3(R[i], p), T[i]);
     // 1. the legs come together (the body was made standing astride); the feet stay level
-    const st = spec.stance == null ? 0.085 : spec.stance;
+    // (spec.legs: { out: [right, left] how far each foot is turned out (radians), fwd: [right, left] how far each foot
+    // stands forward (metres) }: the whole leg turns about the upright line through its hip and leans forward from
+    // it; the foot stays level and points where the leg is turned)
+    const st = spec.stance == null ? 0.085 : spec.stance, LG = spec.legs || {}, footTurn = { L: I3, R: I3 };
     ['L', 'R'].forEach((S) => {
-      const s = S === 'L' ? 1 : -1, hip = head('upperleg01.' + S), ank = head('foot.' + S);
+      const s = S === 'L' ? 1 : -1, k = S === 'R' ? 0 : 1, hip = head('upperleg01.' + S), ank = head('foot.' + S);
       const len = Math.hypot(ank[0] - hip[0], ank[1] - hip[1]), a0 = Math.atan2(s * (ank[0] - hip[0]), hip[1] - ank[1]), a1 = Math.asin(clamp((st - s * hip[0]) / len, -0.5, 0.5));
-      own['upperleg01.' + S] = axis3([0, 0, 1], s * (a1 - a0)); own['foot.' + S] = axis3([0, 0, 1], -s * (a1 - a0));
+      const out = (LG.out && LG.out[k]) || 0, fwd = (LG.fwd && LG.fwd[k]) || 0, Z = axis3([0, 0, 1], s * (a1 - a0));
+      if (!out && !fwd) { own['upperleg01.' + S] = Z; own['foot.' + S] = axis3([0, 0, 1], -s * (a1 - a0)); return; }
+      const Y = axis3([0, 1, 0], s * out), G = mul3(Y, mul3(axis3([1, 0, 0], -Math.asin(clamp(fwd / len, -0.2, 0.2))), Z));
+      own['upperleg01.' + S] = G; own['foot.' + S] = mul3(Y, tr3(G)); footTurn[S] = Y;
     });
     // 1b. in heels: each foot tips forward about its ankle until its ball is `heel` lower, and the toes stay level
     let tip = 0;
@@ -91,8 +98,9 @@
       const ank = head('foot.' + S), ball = head('toe1-1.' + S), by = ball[1] - ank[1], bz = ball[2] - ank[2];
       let lo = 0, hi = 1.1; for (let i = 0; i < 30; i++) { const th = (lo + hi) / 2; if (Math.cos(th) * by - Math.sin(th) * bz > by - spec.heel) lo = th; else hi = th; }
       tip = (lo + hi) / 2;
-      own['foot.' + S] = mul3(axis3([1, 0, 0], tip), own['foot.' + S]);
-      for (let k = 1; k <= 5; k++) own['toe' + k + '-1.' + S] = axis3([1, 0, 0], -tip);
+      const across = app3(footTurn[S], [1, 0, 0]);                      // (the line across the foot, as the foot is turned)
+      own['foot.' + S] = mul3(axis3(across, tip), own['foot.' + S]);
+      for (let k = 1; k <= 5; k++) own['toe' + k + '-1.' + S] = axis3(across, -tip);
     });
     // 2. the head
     if (spec.head) own.neck03 = mul3(axis3([0, 1, 0], spec.head[0] || 0), mul3(axis3([1, 0, 0], spec.head[1] || 0), axis3([0, 0, 1], spec.head[2] || 0)));
@@ -107,7 +115,7 @@
       const tl = (name) => { const i = B.bi[name] * 3; return [v.tails[i], v.tails[i + 1], v.tails[i + 2]]; };
       const w = head('wrist.' + S), a = V.sub(head('finger2-1.' + S), w), b = V.sub(head('finger5-1.' + S), w);
       const palm = V.norm(V.mul(V.cross(a, b), S === 'L' ? -1 : 1));      // out of the palm
-      const BEND = spec.bend || [0.42, 0.62, 0.36], MORE = { 2: 0.80, 3: 0.95, 4: 1.08, 5: 1.22 }, TH = spec.thumb || [0.75, 0.4, 0.1, 0.15], grip = spec.grip && spec.grip[k], IN = spec.close || { 2: 0.12, 4: 0.10, 5: 0.17 };      // (radians at each joint of a finger for a loose fist; the little finger curls most)
+      const BEND = spec.bend || [0.42, 0.62, 0.36], MORE = { 2: 0.80, 3: 0.95, 4: 1.08, 5: 1.22 }, TH = spec.thumb || [0.9, 0.85, 0.15, 0.2], grip = spec.grip && spec.grip[k], IN = spec.close || { 2: 0.26, 4: 0.20, 5: 0.36 };      // (radians at each joint of a finger for a loose fist; the little finger curls most)
       for (let f = 2; f <= 5; f++) for (let j = 1; j <= 3; j++) {
         const name = 'finger' + f + '-' + j + '.' + S, dir = V.norm(V.sub(tl(name), head(name)));
         fingers[name] = { axis: V.norm(V.cross(dir, palm)), ang: c * BEND[j - 1] * MORE[f] };

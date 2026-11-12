@@ -40,13 +40,15 @@
       return { wrist, pole: [s * POLE[p][0], POLE[p][1], POLE[p][2]] };
     });
     this.stance = look.stance || (dressed ? 0.066 : look.sex === 'm' ? 0.098 : 0.088);
+    // (its feet: the toes turned out a little, a gent's more; `step`: [right, left] a foot that stands a little forward)
+    this.toes = look.toes == null ? (look.sex === 'm' ? 0.16 : 0.10) : look.toes; this.step = look.step || [0, 0];
     // its shoes: how far they lift it; a pump or a flat leaves the foot to be seen, and the foot then stands as the shoe holds it
     const sh = look.shoes || {};
     this.lift = sh.lift == null ? (sh.kind === 'heel' ? 0.065 : look.sex === 'm' ? 0.02 : 0.012) : sh.lift;
     this.bare = sh.kind === 'heel' || sh.kind === 'flat'; this.sole = sh.kind === 'heel' ? 0.005 : 0.006;
     // (the hands: their fingers curled a little, as a hand at rest has them; a hand that holds a clutch a little more)
-    const curl = pose.map((p) => (look.curl == null ? (p === 'clutch' ? 0.75 : 0.30) : look.curl));
-    const posed = this.posed = A.poseBody(key, { arms, curl, grip: pose.map((p) => p === 'clutch'), thumb: look.thumb, bend: look.bend, stance: this.stance, head: look.head, heel: this.bare ? Math.max(0, this.lift - this.sole) : 0 });
+    const curl = pose.map((p) => (look.curl == null ? (p === 'clutch' ? 0.75 : 0.34) : look.curl));
+    const posed = this.posed = A.poseBody(key, { arms, curl, grip: pose.map((p) => p === 'clutch'), thumb: look.thumb, bend: look.bend, close: look.close, stance: this.stance, legs: { out: [this.toes, this.toes], fwd: this.step }, head: look.head, heel: this.bare ? Math.max(0, this.lift - this.sole) : 0 });
     this.arm = {}; this.leg = {};
     for (const s of [-1, 1]) {
       const S = s < 0 ? 'R' : 'L';
@@ -56,7 +58,7 @@
       { const A2 = this.arm[s], kn = [2, 3, 4, 5].map((f) => posed.joint('finger' + f + '-1.' + S)), pip = [2, 3, 4, 5].map((f) => posed.joint('finger' + f + '-2.' + S)), mid = [2, 3, 4, 5].map((f) => posed.joint('finger' + f + '-3.' + S)), tip = [2, 3, 4, 5].map((f) => posed.tail('finger' + f + '-3.' + S));
         const a = V.sub(kn[0], A2.W), b = V.sub(kn[3], A2.W);
         A2.hand = { kn, pip, mid, tip, thumb: [posed.joint('finger1-2.' + S), posed.joint('finger1-3.' + S), posed.tail('finger1-3.' + S)], palm: V.norm(V.mul(V.cross(a, b), s > 0 ? -1 : 1)), across: V.norm(V.sub(kn[3], kn[0])), mid0: V.mix(kn[1], kn[2], 0.5) }; }
-      this.leg[s] = { H: posed.joint('upperleg01.' + S), K: posed.joint('lowerleg01.' + S), A: posed.joint('foot.' + S) };
+      this.leg[s] = { H: posed.joint('upperleg01.' + S), K: posed.joint('lowerleg01.' + S), A: posed.joint('foot.' + S), yaw: s * this.toes };      // (yaw: how the foot is turned about the upright line through its ankle)
     }
     d.upper = V.len(V.sub(this.arm[1].E, this.arm[1].S)); d.lower = V.len(V.sub(this.arm[1].W, this.arm[1].E));
     d.belt = d.waist - (look.sex === 'm' ? 0.048 : 0);                // where trousers sit: a gent's a hand below his natural waist
@@ -160,7 +162,7 @@
       // (across the face: 0 its middle, the eyes at .41; behind the middle of the head it runs on, growing fast: nothing
       // of a face is painted there, and nothing ends in a step)
       uv: (i) => { if (reg[i] > 1) return [9, -9]; const x = P[i * 3], z = P[i * 3 + 2]; return [z > H.zc ? x / fx : (x < 0 ? -1 : 1) * (Math.abs(x) + 2 * (H.zc - z)) / fx, 0.5 + 0.3 * (P[i * 3 + 1] - ey) / (ey - my)]; } });
-    m.raw(P, D.ltris, { slot: SLOT.hair, mat: 1.2, rig: () => 3, uv: (i) => [P[i * 3] * 400, D.lashv[i - D.nb] / 255] });
+    m.raw(P, D.ltris, { slot: SLOT.hair, mat: H.man ? 1.22 : 1.2, rig: () => 3, uv: (i) => [P[i * 3] * 400, D.lashv[i - D.nb] / 255] });
     // a beard: layers of hair that stand off the face (the shader says which hairs reach each layer)
     if (H.man && (look.beard || 0) >= 0.6) {      // (a full beard; a stubble is the skin's own shade)
       const faceUV = (i) => { const x = P[i * 3], z = P[i * 3 + 2]; return [z > H.zc ? x / fx : (x < 0 ? -1 : 1) * (Math.abs(x) + 2 * (H.zc - z)) / fx, 0.5 + 0.3 * (P[i * 3 + 1] - ey) / (ey - my)]; };
@@ -396,9 +398,10 @@
     // hands folded in front, low: the left hand lies on the belly, pointing down and to the right; the right hand lies
     // on its back, pointing down and to the left: its palm on the left hand's, its fingers over the left hand's edge
     const yc = d.hip + (o.clasp == null ? 0.075 : o.clasp);
-    G.clasp = lazyPair(() => { const dn = 0.70, L = solve(1, (out) => ({ W: on(yc, 0.22, thick + 0.012 + out), pole: [1, -0.1, -0.6], point: [-dn, -dn, -0.08], palm: [0.1, 0.15, -1] }), null, 0, true);
+    G.clasp = lazyPair(() => { const an = o.claspDn == null ? 0.45 : o.claspDn, sn = Math.sin(an), cs = Math.cos(an), da = o.claspA == null ? 0.22 : o.claspA;      // (an: how far from straight down the hands point, across the body)
+      const L = solve(1, (out) => ({ W: on(yc, da, thick + 0.012 + out), pole: [1, -0.1, -0.6], point: [-sn, -cs, -0.08], palm: [0.1, 0.15, -1] }), null, 0, true);
       const Lc = L.at.filter((b) => b[0] === 'h')[0][1];                  // (the middle of the left hand)
-      const R = solve(-1, (out) => ({ W: [Lc[0] - 0.047 * dn, Lc[1] + 0.047 * dn + 0.004, Lc[2] + 0.026 + out], pole: [-1, -0.1, -0.6], point: [dn, -dn, -0.08], palm: [-0.1, 0.15, -1] }), L.at, 0.004, true);
+      const R = solve(-1, (out) => ({ W: [Lc[0] - 0.047 * sn, Lc[1] + 0.047 * cs + 0.004, Lc[2] + 0.026 + out], pole: [-1, -0.1, -0.6], point: [sn, -cs, -0.08], palm: [-0.1, 0.15, -1] }), L.at, 0.004, true);
       return { 1: L, [-1]: R }; });
     // a hand on the hip: the heel of the hand on the side of the hip below the waist, the fingers forward and down over
     // the front of the hip, the elbow out and a little back
@@ -491,12 +494,12 @@
     const man = d.sex === 'm';
     // the hairline, as a height on the head by the angle from the front: over the brow, round the temple, over the
     // ear, down to the nape
-    const line = keyed(man ? [[0, 0.80], [0.6, 0.77], [1.1, 0.64], [1.5, 0.64], [1.85, 0.58], [2.2, 0.30], [PI, 0.16]] : [[0, 0.80], [0.6, 0.76], [1.1, 0.62], [1.5, 0.60], [1.85, 0.48], [2.2, 0.22], [PI, 0.08]]);
+    const line = keyed(man ? [[0, 0.805], [0.50, 0.80], [0.82, 0.765], [1.02, 0.70], [1.20, 0.60], [1.34, 0.515], [1.50, 0.585], [1.85, 0.57], [2.2, 0.30], [PI, 0.16]] : [[0, 0.80], [0.6, 0.76], [1.1, 0.62], [1.5, 0.60], [1.85, 0.48], [2.2, 0.22], [PI, 0.08]]);
     // the cap of hair: from the hairline up over the crown
     const cap = (puff, c) => m.patch(34, 12, (u, v) => {
-      const th = PI + u * TAU, a = wrapA(th), l0 = c && c.line ? c.line(a) : line(a), t = mix(l0, c && c.top ? Math.max(l0, c.top) : 1, v);
-      return hs(t, th, puff(a, t, v), 0.004);
-    }, Object.assign({ wrap: true, uv: (u, v) => [u, Math.max(0.05, 1 - v * 2.6)] }, o, c && c.tint ? { tint: () => c.tint } : null));
+      const th = PI + u * TAU, a = wrapA(th), l1 = c && c.line ? c.line(a) : line(a), l0 = l1 - 0.020, t = mix(l0, c && c.top ? Math.max(l1, c.top) : 1, v);
+      return hs(t, th, puff(a, t, v) * (0.16 + 0.84 * smooth(0.0, 0.17, v)), 0.004);      // (thin and close at the hairline, full above it)
+    }, Object.assign({ wrap: true, uv: (u, v) => [u, 2 + Math.min(1, v / 0.15)] }, o, c && c.tint ? { tint: () => c.tint } : null));
     if (style === 'crop' || style === 'grey') cap((a, t, v) => 0.07 + 0.07 * smooth(0.55, 1, t) + 0.07 * Math.exp(-a * a / 0.7) * smooth(0.0, 0.4, v) * (1 - smooth(0.85, 1, v)) + 0.012 * Math.sin(a * 9 + t * 7));
     // a buzz cut: close to the skull
     else if (style === 'buzz') cap((a, t) => 0.036 + 0.012 * smooth(0.6, 1, t), { tint: 1.12 });
@@ -553,7 +556,9 @@
   // Where a garment's shoulder ends and its sleeve is set in: at `out` beyond the arm's joint. The garment's shell is
   // cut off there (the body's own shoulder runs on to a thin ridge), and the sleeve's head is a ball of radius r
   // whose crown passes just over the shell's last point. ease: the shell's ease at the shoulders.
-  const shoulderOf = (B, ease, out, r) => { const x = Math.abs(B.arm[1].S[0]) + out, y = B.ridge(x - ease) + ease * 0.7; return { x, r, y: y - r + 0.004 }; };
+  const shoulderOf = (B, ease, out, r) => { const x = Math.abs(B.arm[1].S[0]) + out, y = B.ridge(x - ease) + ease * 0.7; return { x, r, y: y - r + 0.006 }; };
+  // (a garment's shell near its shoulder's end: the last 2 cm are drawn in to the end's plane along a curve, so the shoulder runs into the sleeve's head round, not as a corner)
+  const shoulderEnd = (B, sx) => (q, a, v, y) => { const ax = Math.abs(q[0]), x0 = sx - 0.020; if (y > B.d.pit && ax > x0) { const k = Math.min(1, (ax - x0) / 0.045); q[0] = Math.sign(q[0]) * (x0 + 0.020 * (1 - (1 - k) * (1 - k))); } return q; };
   // a sleeve along the arm (the arm itself is the body's): to the wrist, rolled to the elbow (.5) or short (.22)
   function arm(m, B, side, pose, o) {
     o = o || {};
@@ -561,9 +566,11 @@
     if (len <= 0) return J;
     m.rig = B.rigOf(side);
     // (head: a jacket's sleeve begins as wide as the shoulder it is set into)
-    const top = o.head ? [side * (o.head.x - 0.012), o.head.y, J.S[2], o.head.r] : [J.S[0] - side * 0.012, J.S[1] - 0.012, J.S[2], u[0] * 0.80 + e * 0.6];
+    const top = o.head ? [side * (o.head.x - 0.016), o.head.y + (o.head.rx ? o.head.r - o.head.rx : 0), J.S[2], o.head.rx || o.head.r, o.head.r] : [J.S[0] - side * 0.012, J.S[1] - 0.012, J.S[2], u[0] * 0.80 + e * 0.6];
     const mid = [...V.mix(J.S, J.E, 0.5), mix(u[0], u[1], 0.45) + e], elb = [J.E[0], J.E[1], J.E[2], u[1] + e + 0.003];
-    const opt = { slot: o.slot, mat: o.mat, nu: 14, sub: 4, round0: true };
+    // (for the shader's creases: how far along the arm from the elbow each point is, in vUV.y = 15 + 10 x metres)
+    const axU = V.norm(V.sub(J.E, J.S)), axL = V.norm(V.sub(J.W, J.E)), alongArm = (q) => { const dq = V.sub(q, J.E), t = V.dot(dq, axL); return clamp(t >= 0 ? t : V.dot(dq, axU), -0.45, 0.45); };
+    const opt = { slot: o.slot, mat: o.mat, nu: 18, sub: 5, round0: true, side: [1, 0, 0], uv: (u, v, q) => [u, 15 + 10 * alongArm(q)] };
     if (len >= 1) m.tube([top, mid, elb, [...V.mix(J.E, J.W, 0.5), mix(l[0], l[1], 0.45) + e], [...V.mix(J.E, J.W, 0.955), l[1] + e + 0.005]], opt);
     else if (len >= 0.5) m.tube([top, mid, [elb[0], elb[1], elb[2], elb[3] + 0.006], [...V.mix(J.E, J.W, 0.12), l[0] + e + 0.014]], opt);
     else {
@@ -576,7 +583,7 @@
     // the seam where the sleeve is set in: a fine dark line round the arm near its top
     if (o.seam && len >= 0.3) {
       const at2 = (k) => [mix(top[0], mid[0], k), mix(top[1], mid[1], k), mix(top[2], mid[2], k), mix(top[3], mid[3], k) + 0.0012];
-      m.tube([at2(0.055), at2(0.078)], { slot: o.slot, mat: o.mat, nu: 14, sub: 1, ball: false, tint: () => 0.76 });
+      m.tube([at2(0.058), at2(0.070)], { slot: o.slot, mat: o.mat, nu: 18, sub: 1, ball: false, tint: () => 0.88 });
     }
     // a cuff: a shirt's, with its seam and its button; a jumper's ribbed band
     if (o.band && len >= 1) {
@@ -676,9 +683,11 @@
     shell(m, B, { y0: C.y0, y1: C.y1, ease: C.es, slot: o.slot, mat: o.mat, nv: C.NV, nu: 48, part,
       mod: (q, a, v, y) => { const cz = B.torso.cz(y), r = C.seat(y, a); q[0] = Math.sin(a) * r; q[2] = cz + Math.cos(a) * r; return q; } });
     for (const s of [-1, 1]) {
+      const kneeY = B.leg[s].K[1], hemY = C.path[s][C.path[s].length - 1][1], brk = (u, q) => (C.short ? 0 : 0.085 * Math.exp(-Math.pow((q[1] - hemY - 0.045) / 0.014, 2)) * Math.exp(-Math.pow((u - 0.25) / 0.16, 2)));      // (the break: a soft fold above the shoe, in front)
       m.tube(C.path[s], { slot: o.slot, mat: o.mat === MAT.denim && !C.short ? 6.55 : o.mat, nu: 24, sub: 4, part,      // (denim legs: 6.55 = top-stitched)
+        uv: o.mat === MAT.denim || C.short ? undefined : (u, v, q) => [u, 25 + 10 * clamp(q[1] - kneeY, -0.45, 0.45)],      // (for the shader's creases behind the knee)
         tint: o.mat === MAT.denim ? (u) => 1 - 0.16 * Math.exp(-Math.pow((((u + 0.5) % 1) - 0.5) / 0.012, 2)) - 0.16 * Math.exp(-Math.pow((u - 0.5) / 0.012, 2))
-          : (u, v) => 1 - 0.10 * Math.exp(-Math.pow((u - 0.25) / 0.014, 2)) * smooth(0.12, 0.3, v) + 0.07 * Math.exp(-Math.pow((u - 0.275) / 0.014, 2)) * smooth(0.12, 0.3, v) });
+          : (u, v, q) => 1 - 0.10 * Math.exp(-Math.pow((u - 0.25) / 0.014, 2)) * smooth(0.12, 0.3, v) + 0.07 * Math.exp(-Math.pow((u - 0.275) / 0.014, 2)) * smooth(0.12, 0.3, v) - brk(u, q) });
     }
     // shorts: a turned-up hem
     if (C.short) for (const s of [-1, 1]) { const P = C.path[s], a = P[P.length - 2], b = P[P.length - 1], k = 0.82; m.tube([[mix(a[0], b[0], k), mix(a[1], b[1], k), mix(a[2], b[2], k), b[3] + 0.0016], [b[0], b[1] - 0.001, b[2], b[3] + 0.0022]], { slot: o.slot, mat: o.mat, nu: 24, sub: 2, ball: false, part, tint: () => 0.92 }); }
@@ -726,7 +735,10 @@
   const rimAngle = (y, yc, b) => { const k = clamp((y - yc) / b, -1, 1); return Math.acos(k >= 0 ? Math.pow(k, 1.2) : -Math.pow(-k, 4)); };
   // a posed foot (side s), measured in slices from its heel to its toes: [z, x0, x1, y0, y1] each, already lifted
   function footSlices(B, s, lift, N) {
-    const D = A.BODY, P = B.posed.P, reg = D.region, r0 = s > 0 ? 13 : 14, ids = []; let z0 = 1e9, z1 = -1e9;
+    const D = A.BODY, P0 = B.posed.P, reg = D.region, r0 = s > 0 ? 13 : 14, ids = []; let z0 = 1e9, z1 = -1e9;
+    // (a foot that is turned out is measured along its own length: its points turned back about the ankle first; shoes() turns the finished shoe out again)
+    const yw = B.leg[s].yaw || 0, Aj = B.leg[s].A, cy = Math.cos(yw), sy = Math.sin(yw), P = yw ? new Float32Array(P0.length) : P0;
+    if (yw) for (let i = 0; i < D.n; i++) if (reg[i] === r0) { const dx = P0[i * 3] - Aj[0], dz = P0[i * 3 + 2] - Aj[2]; P[i * 3] = Aj[0] + dx * cy - dz * sy; P[i * 3 + 1] = P0[i * 3 + 1]; P[i * 3 + 2] = Aj[2] + dx * sy + dz * cy; }
     for (let i = 0; i < D.n; i++) if (reg[i] === r0) { ids.push(i); const z = P[i * 3 + 2]; if (z < z0) z0 = z; if (z > z1) z1 = z; }
     const bins = []; for (let k = 0; k < N; k++) bins.push([1e9, -1e9, 1e9, -1e9]);
     ids.forEach((i) => { const k = Math.min(N - 1, Math.floor((P[i * 3 + 2] - z0) / (z1 - z0) * N)), b = bins[k], x = P[i * 3], y = P[i * 3 + 1] + lift; if (x < b[0]) b[0] = x; if (x > b[1]) b[1] = x; if (y < b[2]) b[2] = y; if (y > b[3]) b[3] = y; });
@@ -747,7 +759,7 @@
   function shoes(m, B, o, lift) {
     const d = B.d, kind = o.kind, man = d.sex === 'm', skin = B.H.man ? MAT.realM : MAT.real;
     for (const s of [-1, 1]) {
-      const Aj = B.leg[s].A, x = Aj[0];
+      const Aj = B.leg[s].A, x = Aj[0], c0 = m.count;
       if (B.bare) {
         // a pump or a flat, round the lady's own foot: a cup for the heel, low sides, the toes covered
         const sl = footSlices(B, s, lift, 22), N = sl.length, pump = kind === 'heel', gap = 0.0065, ts = B.sole, st = [];
@@ -813,6 +825,9 @@
         const top = lift + d.ankle + (man ? 0.07 : 0.10), r = d.calf[1] + 0.010;
         m.tube([[x, hh + 0.035, z0 + 0.085, wide * 0.62, 0.052], [x, hh + 0.085, z0 + 0.072, r + 0.007, r + 0.017], [x, lift + d.ankle + 0.045, z0 + 0.066, r + 0.006, r + 0.009]].concat(o.bare ? [[x, top - 0.02, z0 + 0.062, r + 0.011, r + 0.014], [x, top, z0 + 0.061, r + 0.013, r + 0.016]] : [[x, top, z0 + 0.064, r + 0.007, r + 0.009]]), { slot: SLOT.shoe, mat: MAT.leather, nu: 14, sub: 3, ball: false });
       }
+      // (the shoe was made pointing straight ahead: it is turned out with its foot, about the upright line through the ankle)
+      const yw = B.leg[s].yaw || 0;
+      if (yw) { const cy = Math.cos(yw), sy = Math.sin(yw); for (let i = c0; i < m.count; i++) { const dx = m.p[i * 3] - Aj[0], dz = m.p[i * 3 + 2] - Aj[2]; m.p[i * 3] = Aj[0] + dx * cy + dz * sy; m.p[i * 3 + 2] = Aj[2] - dx * sy + dz * cy; } }
     }
   }
   // a small free ribbon through three points in space (a shoe's strap)
@@ -892,14 +907,14 @@
     const sleeved = (o.sleeve == null ? 1 : o.sleeve) > 0;
     const sh = sleeved ? shoulderOf(B, ez(d.sho) + (knit ? 0.002 : 0), 0.010, d.armUp[0] * 0.86 + Math.min(e, 0.011) + 0.003) : o.under ? { x: Math.abs(B.arm[1].S[0]) - 0.004 } : null;      // (sleeveless under a jacket: it ends inside the jacket's shoulders)
     shell(m, B, { y0, y1: (a) => B.nb(a) + nk, ease: (y) => ez(y) + (knit ? 0.006 * (1 - smooth(y0, y0 + 0.05, y)) : 0), slot, mat, nv: 22, hang: d.hip + 0.01,
-      uv: (u, v) => [u, v], mod: sh ? (q, a, v, y) => { if (y > d.pit && Math.abs(q[0]) > sh.x) q[0] = Math.sign(q[0]) * sh.x; return q; } : null });
+      uv: (u, v) => [u, v], mod: sh ? shoulderEnd(B, sh.x) : null });
     for (const s of [-1, 1]) arm(m, B, s, o.pose && o.pose[s < 0 ? 0 : 1], { len: o.sleeve == null ? 1 : o.sleeve, ease: Math.min(e, 0.011) + 0.003, slot, mat, cuff: o.cuff, head: sh, seam: !o.under, band: o.under ? null : knit ? 'rib' : 'cuff' });
     if (o.collar === 'crew') m.tube(ringPath(B, (a) => B.nb(a) + nk + 0.002, e + 0.004, 0.011), { slot, mat, nu: 8, sub: 3, ball: false, uv: (u, v) => [v * 3, u] });
     if (o.collar === 'shirt' || o.collar === 'open') shirtCollar(m, B, o.collarSlot == null ? slot : o.collarSlot, o.collar === 'open', e, o.under);
     if (o.placket) {
-      const pl = [[d.neckF - 0.012, 0], [d.bust, 0], [tucked ? d.belt + 0.018 : y0 + 0.01, 0]];
+      const openC = o.collar === 'open', pl = [[d.neckF - (openC ? 0.070 : 0.012), 0], [d.bust, 0], [tucked ? d.belt + 0.018 : y0 + 0.01, 0]];
       ribbon(m, B, pl, { w: 0.026, ease: (tt) => ez(curve(pl, tt * 2)[0]) + 0.0025, slot, mat: MAT.cloth, tint: 0.93, n: 14 });
-      for (let yb = d.neckF - 0.06; yb > (tucked ? d.belt + 0.03 : y0 + 0.03); yb -= 0.085) m.egg(B.surf(yb, 0, ez(yb) + 0.004, d.hip + 0.01), [0.0052, 0.0052, 0.0022], { slot, mat: MAT.leather, tint: () => 0.82, nu: 6, nv: 4, ball: false });
+      for (let yb = d.neckF - (openC ? 0.088 : 0.06); yb > (tucked ? d.belt + 0.03 : y0 + 0.03); yb -= 0.085) m.egg(B.surf(yb, 0, ez(yb) + 0.004, d.hip + 0.01), [0.0052, 0.0052, 0.0022], { slot, mat: MAT.leather, tint: () => 0.82, nu: 6, nv: 4, ball: false });
     }
   }
   // a closed ring of points around the body at height y, as a tube's path
@@ -915,9 +930,9 @@
       const a = s * mix(gap + (open ? 0.22 : 0.12) * v - grow * 2.2 * v, PI, u), deep = mix(open ? 0.080 : 0.070, tuck ? 0.026 : 0.036, smooth(0, 0.55, u)) + grow;
       return B.neck(B.nb(a) + 0.030 - v * deep, a, 0.009 + lift + (tuck ? 0.005 : 0.010) * Math.sin(v * PI * 0.5), true);
     }, Object.assign({ flip: s > 0 }, o, tint == null ? null : { tint: () => tint }));
-    for (const s of [-1, 1]) { leaf(s, 0.0045, -0.0028, 0.70); leaf(s, 0, 0, null); }      // (its shade, a little larger and lower; then the leaf)
+    for (const s of [-1, 1]) { leaf(s, 0.0070, -0.0036, 0.905); leaf(s, 0.0030, -0.0028, 0.80); leaf(s, 0, 0, null); }      // (its shade: wide and faint, then narrow and darker; then the leaf)
     // an open collar: the hollow of the throat between the leaves
-    if (open) m.patch(6, 6, (u, v) => { const yy = mix(d.neckF + 0.024, d.neckF - 0.075, v), half = 0.26 * Math.pow(1 - v, 1.4); return B.surf(yy, (u - 0.5) * 2 * half, e + 0.0016); }, { flip: true, slot: SLOT.skin, mat: d.sex === 'm' ? MAT.realM : MAT.real, uv: () => [9, -9] });
+    if (open) m.patch(8, 8, (u, v) => { const yy = mix(d.neckF + 0.011, d.neckF - 0.072, v), half = Math.asin(Math.min(0.9, mix(0.036, 0.003, Math.pow(v, 0.85)) / Math.max(B.torso.rad(yy, 0), 0.07))); return B.surf(yy, (u - 0.5) * 2 * half, mix(e + 0.0008, e + 0.0034, smooth(0, 0.3, v))); }, { flip: true, slot: SLOT.skin, mat: d.sex === 'm' ? MAT.realM : MAT.real, uv: () => [9, -9] });
   }
   // a jacket, blazer, cardigan or denim jacket: a shell open in front, lapels, sleeves
   function jacket(m, B, o) {
@@ -931,11 +946,12 @@
     // its ease: room at the shoulders; a tailored one is taken in at the waist
     const ez = (y) => e + 0.012 * smooth(d.pit - 0.02, d.sho - 0.02, y) * (1 - 0.35 * smooth(d.sho - 0.01, d.neck, y)) - (tailored && closed ? 0.0055 * Math.exp(-Math.pow((y - d.waist) / 0.09, 2)) : 0);
     // the shoulder ends where the sleeve's head begins (the body's own shoulder runs out to a ridge there)
-    const sh = shoulderOf(B, ez(d.sho), 0.012, tailored ? 0.060 : mat0 === MAT.knit ? 0.056 : 0.058), sx = sh.x;
+    const sh = shoulderOf(B, ez(d.sho), tailored ? (o.shoOut == null ? 0.030 : o.shoOut) : 0.016, tailored ? 0.060 : mat0 === MAT.knit ? 0.056 : 0.058), sx = sh.x;
+    if (tailored) sh.rx = o.shoRx == null ? 0.047 : o.shoRx;
     const gorge = tailored && !closed ? 0.07 : 0;                      // (an open blazer's fronts are cut away below the neck)
     shell(m, B, { y0: hem, y1: (a) => B.nb(a) + 0.004 - gorge * (1 - smooth(0.5, 1.1, Math.abs(a))), ease: ez, open: al, slot, mat, nv: 26, nu: 36, hang: d.hip + 0.01,
-      mod: (q, a, v, y) => { if (y > d.pit && Math.abs(q[0]) > sx) q[0] = Math.sign(q[0]) * sx; return q; } });
-    for (const s of [-1, 1]) arm(m, B, s, o.pose && o.pose[s < 0 ? 0 : 1], { len: o.sleeve == null ? 1 : o.sleeve, ease: tailored ? 0.009 : e * 0.6 + 0.003, slot, mat: folds(mat0, mat0 === MAT.knit ? 0 : 0.3), cuff: o.cuff, head: sh, buttons: tailored, seam: true, band: mat0 === MAT.knit ? 'rib' : null });
+      mod: shoulderEnd(B, sx) });
+    for (const s of [-1, 1]) arm(m, B, s, o.pose && o.pose[s < 0 ? 0 : 1], { len: o.sleeve == null ? 1 : o.sleeve, ease: tailored ? 0.009 : e * 0.6 + 0.003, slot, mat: folds(mat0, mat0 === MAT.knit ? 0 : 0.3), cuff: o.cuff, head: sh, buttons: tailored, seam: !tailored, band: mat0 === MAT.knit ? 'rib' : null });
     const R = (y) => Math.max(B.torso.rad(y, 0.6), 0.08), hang = d.hip + 0.01;
     if (tailored) {
       // Notch lapels: each is folded back along the opening from the button up to the notch, widest at the top, its
@@ -947,10 +963,10 @@
           const yv = mix(y0, yg, v), y = yv + 0.004 * u * smooth(0.6, 1, v), w = 0.012 + (lw - 0.012) * Math.pow(v, 0.7) + grow;
           return B.surf(y, s * (al(yv) - 0.004 / R(yv) + u * w / R(y)), ease + 0.0035 * Math.sin(u * PI), hang);
         }, { slot, mat, tint: () => tint, flip: s < 0 });
-        lapel(0.007, e + 0.0035, 0.64); lapel(0, e + 0.0075, 1.06);
+        lapel(0.015, e + 0.0028, 0.90); lapel(0.007, e + 0.0035, 0.66); lapel(0, e + 0.0075, 1.06);
         const end = (grow, ease, tint) => m.patch(3, 8, (u, v) => {
           const yv = mix(yg, yt, v), w = mix(0.050, 0.046, v) + grow, a = al(yv) - 0.004 / R(yv) + u * w / R(yv);
-          return B.surf(mix(yg + 0.001 + 0.026 * u, B.nb(a) + 0.016, v), s * a, ease + 0.003 * Math.sin(u * PI));      // (its lower edge rises outward from the lapel's top: the notch)
+          return B.surf(mix(yg + 0.001 + 0.026 * u, B.nb(a) + 0.002, v), s * a, ease + 0.003 * Math.sin(u * PI));      // (its lower edge rises outward from the lapel's top: the notch)
         }, { slot, mat, tint: () => tint, flip: s < 0 });
         if (closed) { end(0.006, e + 0.004, 0.64); end(0, e + 0.0085, 1.03); }
       }
@@ -966,7 +982,7 @@
     if (o.lapel !== false) {
       // the collar, round the back of the neck: a finger's width up the neck behind; from there it lies down on the
       // shoulders (its width is measured along the body, not in height)
-      const ends = tailored && closed, a0 = ends ? al(yt) + 0.38 : gorge ? al(yt) + 0.03 : al(yt) + 0.17, W = 0.043;      // (a buttoned jacket's collar ends are made above: this is the part behind them)
+      const ends = tailored && closed, a0 = ends ? al(yt) + 0.10 : gorge ? al(yt) + 0.03 : al(yt) + 0.17, W = 0.043;      // (a buttoned jacket's collar ends are made above: this is the part behind them)
       const down = (th, top, len, ease) => {
         let p = B.neck(top, th, ease, true), y = top, left = len;
         for (let i = 0; i < 40 && left > 1e-5; i++) { y -= 0.003; const q = B.neck(y, th, ease, true), sg = V.len(V.sub(q, p)); if (sg >= left) return V.mix(p, q, left / sg); left -= sg; p = q; }
@@ -1099,6 +1115,21 @@
     m.rig = 0;
   }
   // A head of its own: every point the head carries is moved a little (fz: w the face's width, jaw, cheek, temple; d its
+  // An envelope clutch: a slim box with rounded edges (24 x 12.4 x 3.4 cm), its flap folded down over the front to a
+  // soft point with the flap's shade under its edge, and a small gold clasp where the point lies.
+  function clutchBag(m, c, slot) {
+    const a = 0.120, b = 0.062, t = 0.017, E = 0.3, pw = (x) => Math.sign(x) * Math.pow(Math.abs(x), E);
+    m.patch(28, 14, (u, v) => { const th = u * TAU, ph = v * PI, sn = Math.sin(ph); return [c[0] + a * pw(sn * Math.sin(th)), c[1] - b * pw(Math.cos(ph)), c[2] + t * pw(sn * Math.cos(th))]; }, { slot, mat: MAT.satin, wrap: true });
+    m.balls.push([c[0], c[1], c[2], t * 0.9, m.parts - 1]);
+    // (the front face at X, Y: -1 .. 1 across and up)
+    const zf = (X, Y) => t * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(X), 2 / E) - Math.pow(Math.abs(Y), 2 / E)), E / 2);
+    const edge = (X) => -0.16 + 0.70 * Math.pow(Math.abs(X), 1.45);      // (the flap's lower edge: lowest in the middle)
+    const flap = (grow, lift, tint) => m.patch(18, 6, (u, v) => { const X = (u * 2 - 1) * 0.955, Y = mix(0.93 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(X), 2 / E)), E / 2), edge(X) - grow, v);      // (its top follows the box's rounded corners)
+      return [c[0] + a * X, c[1] + b * Y, c[2] + zf(X, Y) + lift]; }, { slot, mat: MAT.satin, tint: () => tint, flip: true });
+    flap(0.075, 0.0007, 0.74); flap(0, 0.0016, 1.05);
+    m.egg([c[0], c[1] + b * (edge(0) + 0.05), c[2] + t + 0.0030], [0.0085, 0.0058, 0.0034], { slot: SLOT.gold, mat: MAT.metal, nu: 10, nv: 6, ball: false });
+  }
+
   // depth; long its length; chin (m) and chinZ (m, forward); nose (m); brow (m)): no two people have one head.
   function headWarp(B, fz) {
     const H = B.H, d = B.d, yc = H.y0, yt = d.H, zc = H.zc, hgt = yt - yc;
@@ -1164,7 +1195,7 @@
         chain(m, B, { ease: open ? 0.0032 : te + 0.003, drop: open ? 0.05 : 0.085, arc: open ? 0.9 : 1.35, r: acc.chain === 'heavy' ? 0.0026 : 0.0017, slot: acc.metal === 'silver' ? SLOT.silver : SLOT.gold }); }
       if (acc.watch) wristband(m, B, acc.watch === 'L' ? 1 : -1, { face: true, slot: acc.strap === 'black' ? SLOT.black : SLOT.tortoise });
     }
-    if (pose[0] === 'clutch' && pose[1] === 'clutch') m.egg([0, d.hip - 0.014, B.torso.cz(d.hip) + d.hipZ + 0.127], [0.118, 0.064, 0.016], { slot: SLOT.accent, mat: MAT.satin, nu: 14, nv: 8, mod: (q) => { q[1] = d.hip - 0.014 + clamp(q[1] - d.hip + 0.014, -0.058, 0.058); return q; } });      // (a clutch, held IN FRONT of both hands: the fingers lie behind it, none through it)
+    if (pose[0] === 'clutch' && pose[1] === 'clutch') clutchBag(m, [0, d.hip - 0.016, B.torso.cz(d.hip) + d.hipZ + 0.128], SLOT.accent);      // (a clutch, held IN FRONT of both hands: the fingers lie behind it, none through it)
     // a head of its own (everything the head carries: the face, the hair, what is worn on it)
     const warp = look.face ? headWarp(B, look.face) : null;
     const warpAll = (ms) => { const q = [0, 0, 0]; for (let i = 0; i < ms.count; i++) { if (Math.floor(ms.s[i] / 16) !== 3) continue; q[0] = ms.p[i * 3]; q[1] = ms.p[i * 3 + 1]; q[2] = ms.p[i * 3 + 2]; warp(q); ms.p[i * 3] = q[0]; ms.p[i * 3 + 1] = q[1]; ms.p[i * 3 + 2] = q[2]; } };
@@ -1188,9 +1219,10 @@
         // an arm that hangs beside a skirt: the cloth goes round its hand, not through it
         if (dressed && pose[s < 0 ? 0 : 1] !== 'clutch') { const J = B.arm[s], ax = V.norm(V.sub(J.W, J.E)), h0 = V.mix(J.E, J.W, 0.72), h1 = V.add(J.W, V.mul(ax, 0.13)); handCap[s] = a.length; a.push([h0[0], h0[1] + lift, h0[2], h1[0], h1[1] + lift, h1[2], 0.030, 0.034]); }      // (the stage moves it with the hand)
         if (dressed && w.len === 'floor') {
-          const heel = look.shoes.kind === 'heel', x = L.A[0], z0 = L.A[2] - 0.062, len = d.foot * (heel ? 0.90 : 0.96);
-          a.push([x, lift + 0.034, z0 + 0.05, x, 0.026, z0 + len - 0.035, 0.040, 0.030]);
-          if (heel) a.push([x, lift, z0 + 0.022, x, 0.012, z0 + 0.022, 0.026, 0.020]);
+          const heel = look.shoes.kind === 'heel', x = L.A[0], z0 = L.A[2] - 0.062, len = d.foot * (heel ? 0.90 : 0.96), yw = L.yaw || 0, cy = Math.cos(yw), sy = Math.sin(yw);
+          const along = (dz) => [x + dz * sy, L.A[2] + dz * cy];           // (a place along the turned foot, dz in front of the ankle)
+          { const p0 = along(z0 + 0.05 - L.A[2]), p1 = along(z0 + len - 0.035 - L.A[2]); a.push([p0[0], lift + 0.034, p0[1], p1[0], 0.026, p1[1], 0.040, 0.030]); }
+          if (heel) { const p0 = along(z0 + 0.022 - L.A[2]); a.push([p0[0], lift, p0[1], p0[0], 0.012, p0[1], 0.026, 0.020]); }
         }
         return a;
       }, []) };
@@ -1216,7 +1248,7 @@
     const sleeveT = coatOn && long(w.over) ? (w.over.mat === 'knit' ? 0.017 : 0.014) : w.over === 'denim' ? 0.015 : !dressed && long(w.top) ? (w.top.mat === 'knit' ? 0.013 : 0.009) : 0.002;
     const give = sleeveT > 0.005 ? clamp(thick * 0.7, 0.005, 0.02) : 0.004;      // (a sleeve on a coat or a jumper presses in; a bare arm hardly)
     const hemY = dressed ? 0 : coatOn ? at(B, w.over.hem, d.crotch + 0.005) : w.top && w.top.hem != null ? at(B, w.top.hem, 0) : 0;      // (where what is worn over the trunk ends)
-    const gest = B.rigOf(1) && B.rigOf(-1) ? gestures(B, { thick, sleeve: sleeveT, give, clasp: look.claspY, hem: hemY, under: ((w.legs && w.legs.ease) || 0.012) + 0.004, hang: coatOn || (w.top && w.top.hem != null) ? d.hip + 0.01 : 0,
+    const gest = B.rigOf(1) && B.rigOf(-1) ? gestures(B, { thick, sleeve: sleeveT, give, clasp: look.claspY, claspDn: look.claspDn, claspA: look.claspA, hem: hemY, under: ((w.legs && w.legs.ease) || 0.012) + 0.004, hang: coatOn || (w.top && w.top.hem != null) ? d.hip + 0.01 : 0,
       flare: dressed ? ({ aline: 0.22, vneck: 0.24, day: 0.12, slip: 0.04 }[w.cut || 'aline'] || 0.15) : 0, lady: d.sex === 'f' }) : null;
     // the face's own (its beard, its eyes' colour, its brows, its lips' colour), and the figure's build (girth, height)
     const lk = [look.beard == null ? (d.sex === 'm' ? 0.1 : 0) : look.beard, look.eyes == null ? -1 : look.eyes, look.brows || 0, look.lips == null ? 0.85 : look.lips];
@@ -1242,16 +1274,16 @@
   const AVIATOR = { frame: SLOT.gold, thin: true, lens: SLOT.tortoise, tall: 0.0225 }, ROUND = { wide: 0.0245, tall: 0.0215 };
   A.LOOKS = {
     fri: [
-      { sex: 'f', skin: '#EDC6AE', hair: { style: 'wavy', c: '#8A6242' }, pose: ['rest', 'rest'], home: 'clasp', moves: ['clasp', 'rest', 'rest/hip', 'cross/rest'], label: 'A day dress, a warm wrap and ankle boots',
+      { sex: 'f', skin: '#EDC6AE', hair: { style: 'wavy', c: '#8A6242' }, step: [0.022, -0.006], pose: ['rest', 'rest'], home: 'clasp', moves: ['clasp', 'rest', 'rest/hip', 'cross/rest'], label: 'A day dress, a warm wrap and ankle boots',
         build: [0.97, 0.985], face: { w: -0.02, jaw: -0.035, chin: 0.003 }, eyes: 1, lips: 0.8, cheer: 0.55, acc: { shades: 'up', bangle: 'L' },
         wear: { kind: 'dress', cut: 'day', len: 'knee', mat: 'cloth', over: 'wrap' }, c: { main: 'Dusk Rose', extra: '#EFE3D3' }, shoes: { kind: 'boot', c: '#8A6A4E', lift: 0.035 } },
-      { sex: 'm', skin: '#E2B79C', hair: { style: 'quiff', c: '#3A2A1E' }, pose: ['rest', 'rest'], home: 'rest', moves: ['rest', 'fold', 'clasp', 'rest/hip'], label: 'Chinos, a collared shirt and a blazer',
+      { sex: 'm', skin: '#E2B79C', hair: { style: 'quiff', c: '#3A2A1E' }, step: [-0.008, 0.026], pose: ['rest', 'rest'], home: 'rest', moves: ['rest', 'fold', 'clasp', 'rest/hip'], label: 'Chinos, a collared shirt and a blazer',
         build: [1.03, 1.0], face: { jaw: 0.05, w: 0.015, brow: 0.002, nose: 0.003 }, beard: 0.5, brows: 0.5, cheer: 0.45, acc: { shades: 'on', frames: AVIATOR },
         wear: { kind: 'sep', top: { mat: 'cloth', collar: 'open', placket: true }, over: { mat: 'cloth', openFront: true, hem: ['crotch', 0.04], gap: 0.40, cuff: 4 }, legs: { belt: 6 } }, c: { main: 'Night Sage', second: 'Stone Sand', shirt: '#F5F3EE' }, shoes: { kind: 'oxford', c: '#6A4A33' } },
-      { sex: 'f', skin: '#F2D2BF', hair: { style: 'bob', c: '#C9A56B' }, pose: ['rest', 'rest'], home: 'hip/rest', moves: ['hip/rest', 'rest', 'fold', 'clasp'], label: 'Smart jeans, a pretty blouse and a long cardigan',
+      { sex: 'f', skin: '#F2D2BF', hair: { style: 'bob', c: '#C9A56B' }, step: [0.018, 0], pose: ['rest', 'rest'], home: 'hip/rest', moves: ['hip/rest', 'rest', 'fold', 'clasp'], label: 'Smart jeans, a pretty blouse and a long cardigan',
         build: [1.045, 0.965], face: { w: 0.03, cheek: 0.03, long: -0.03 }, eyes: 0, lips: 0.6, brows: -0.4, cheer: 0.6, acc: { chain: 'fine' },
         wear: { kind: 'sep', top: { mat: 'satin', ease: 0.012, hem: ['hip', 0.08], neck: ['neck', -0.012], sleeve: 0 }, over: { mat: 'knit', openFront: true, hem: ['crotch', -0.10], gap: 0.52, lapel: false, ease: 0.02 }, legs: { mat: 'denim', ease: 0.008 } }, c: { main: '#EDE2D2', second: '#33435C', shirt: 'Blush' }, shoes: { kind: 'boot', c: '#3A2C24', lift: 0.04 } },
-      { sex: 'm', body: ['m', 'mo', 0.6], skin: '#E8BFA5', hair: { style: 'thin', c: '#7A736B' }, pose: ['rest', 'rest'], home: 'fold', moves: ['fold', 'rest', 'clasp', 'hip/rest'], label: 'A knit over a collared shirt, with trousers',
+      { sex: 'm', body: ['m', 'mo', 0.6], skin: '#E8BFA5', hair: { style: 'thin', c: '#7A736B' }, step: [0, 0.02], pose: ['rest', 'rest'], home: 'fold', moves: ['fold', 'rest', 'clasp', 'hip/rest'], label: 'A knit over a collared shirt, with trousers',
         build: [1.09, 0.965], face: { w: 0.045, jaw: 0.03, long: -0.02, nose: 0.004 }, beard: 0.05, eyes: 1, cheer: 0.5, acc: { specs: true },
         wear: { kind: 'sep', top: { mat: 'knit', ease: 0.018, hem: ['hip', -0.03], collar: 'shirt', collarSlot: 7, slot: 2, cuff: 7 }, legs: {} }, c: { main: 'Slate Eucalyptus', second: '#3B3F45', extra: '#FFFFFF' }, shoes: { kind: 'oxford', c: '#5A3E2B' } },
     ],
@@ -1259,27 +1291,27 @@
       { sex: 'f', skin: '#F0CDB8', hair: { style: 'bun', c: '#D8B87E' }, pose: ['clutch', 'clutch'], label: 'Floor-length satin', noun: 'Floor-length satin in', swap: 'main',
         build: [0.965, 1.02], face: { jaw: -0.03, long: 0.02 }, eyes: 0, lips: 0.95, cheer: 0.5,
         wear: { kind: 'dress', cut: 'slip', len: 'floor', mat: 'satin' }, c: { main: 'Blush', accent: '#EADBC8' }, shoes: { kind: 'heel', c: '#E7CDBD' } },
-      { sex: 'm', skin: '#E8BFA5', hair: { style: 'side', c: '#3E2C20' }, pose: ['rest', 'rest'], home: 'clasp', moves: ['clasp', 'rest', 'rest/hip', 'cross/rest'], label: 'A suit with a tie', noun: 'A suit in', swap: 'main',
+      { sex: 'm', skin: '#E8BFA5', hair: { style: 'side', c: '#3E2C20' }, step: [0.024, -0.008], pose: ['rest', 'rest'], home: 'clasp', moves: ['clasp', 'rest', 'rest/hip', 'cross/rest'], label: 'A suit with a tie', noun: 'A suit in', swap: 'main',
         build: [1.0, 1.0], face: { jaw: 0.02, chinZ: 0.002 }, beard: 0.04, eyes: 0.5, cheer: 0.48,
         wear: { kind: 'sep', top: { mat: 'cloth', collar: 'shirt', cuff: 4 }, tie: true, over: { mat: 'cloth', square: 5, cuff: 4 }, legs: { slot: 2, belt: 6 } }, c: { main: 'Slate Eucalyptus', shirt: '#FFFFFF', accent: 'Blush' }, shoes: { kind: 'oxford', c: '#4A3324' } },
-      { sex: 'f', skin: '#EDC6AE', hair: { style: 'long', c: '#7A4A2E' }, pose: ['rest', 'rest'], home: 'rest', moves: ['rest', 'clasp', 'hip/rest', 'cross/rest'], label: 'Tea-length, block heels', noun: 'Tea-length in', swap: 'main',
+      { sex: 'f', skin: '#EDC6AE', hair: { style: 'long', c: '#7A4A2E' }, step: [-0.004, 0.02], pose: ['rest', 'rest'], home: 'rest', moves: ['rest', 'clasp', 'hip/rest', 'cross/rest'], label: 'Tea-length, block heels', noun: 'Tea-length in', swap: 'main',
         build: [1.02, 0.985], face: { w: 0.02, cheek: 0.025 }, eyes: 1, lips: 0.85, cheer: 0.58, acc: { bangle: 'R' },
         wear: { kind: 'dress', cut: 'aline', len: 'tea', mat: 'cloth' }, c: { main: 'Dusk Rose' }, shoes: { kind: 'heel', c: '#C9A28F' } },
-      { sex: 'm', body: 'mo', skin: '#E4B99E', hair: { style: 'grey', c: '#A9A6A0' }, pose: ['rest', 'rest'], home: 'fold', moves: ['fold', 'rest', 'hip/rest', 'clasp'], label: 'A shirt, a belt and smart trousers: no jacket needed', noun: 'A shirt, a belt and trousers in', tail: ': no jacket needed', swap: 'main',
+      { sex: 'm', body: 'mo', skin: '#E4B99E', hair: { style: 'grey', c: '#A9A6A0' }, step: [0.02, 0], pose: ['rest', 'rest'], home: 'fold', moves: ['fold', 'rest', 'hip/rest', 'clasp'], label: 'A shirt, a belt and smart trousers: no jacket needed', noun: 'A shirt, a belt and trousers in', tail: ': no jacket needed', swap: 'main',
         build: [1.05, 0.99], face: { w: 0.02, jaw: 0.025 }, beard: 0.05, eyes: 0, cheer: 0.52,
         wear: { kind: 'sep', top: { mat: 'cloth', collar: 'open', placket: true, cuff: 4 }, legs: { slot: 2, belt: 6 } }, c: { main: 'Midnight Navy', shirt: '#FFFFFF' }, shoes: { kind: 'oxford', c: '#7A5236' } },
     ],
     sun: [
-      { sex: 'f', skin: '#E8BFA5', hair: { style: 'pony', c: '#D2B079' }, pose: ['rest', 'rest'], home: 'rest/hip', moves: ['rest/hip', 'fold', 'rest', 'clasp'], label: 'Jeans, sneakers and a soft knit',
+      { sex: 'f', skin: '#E8BFA5', hair: { style: 'pony', c: '#D2B079' }, step: [0, 0.022], pose: ['rest', 'rest'], home: 'rest/hip', moves: ['rest/hip', 'fold', 'rest', 'clasp'], label: 'Jeans, sneakers and a soft knit',
         build: [1.0, 0.99], face: { w: -0.01, jaw: -0.02, long: 0.01 }, lips: 0.7, cheer: 0.55, acc: { shades: 'on' },
         wear: { kind: 'sep', top: { mat: 'knit', ease: 0.022, hem: ['hip', 0.05], collar: 'crew', slot: 2 }, legs: { mat: 'denim', ease: 0.008 } }, c: { main: '#F1E7D8', second: '#6F8FB3', shirt: '#FFFFFF' }, shoes: { kind: 'sneaker', c: '#F7F5F0' } },
-      { sex: 'm', skin: '#EDC6AE', hair: { style: 'swept', c: '#8E6B45' }, pose: ['rest', 'rest'], home: 'clasp', moves: ['clasp', 'rest', 'hip', 'rest/hip'], label: 'A jumper, jeans and boots',
+      { sex: 'm', skin: '#EDC6AE', hair: { style: 'swept', c: '#8E6B45' }, step: [0.026, -0.006], pose: ['rest', 'rest'], home: 'clasp', moves: ['clasp', 'rest', 'hip', 'rest/hip'], label: 'A jumper, jeans and boots',
         build: [1.07, 1.02], face: { w: 0.03, jaw: 0.045, brow: 0.002 }, beard: 0.88, eyes: 0, brows: 0.6, cheer: 0.5, acc: { chain: 'heavy' },
         wear: { kind: 'sep', top: { mat: 'knit', ease: 0.02, hem: ['hip', -0.02], collar: 'crew', slot: 2 }, legs: { mat: 'denim' } }, c: { main: 'Night Sage', second: '#3F5A80' }, shoes: { kind: 'boot', c: '#6A4A33' } },
-      { sex: 'f', skin: '#DFB194', hair: { style: 'wavy', c: '#4A3024' }, pose: ['rest', 'rest'], home: 'rest', moves: ['rest', 'clasp', 'rest/hip', 'fold'], label: 'A relaxed dress with a denim jacket',
+      { sex: 'f', skin: '#DFB194', hair: { style: 'wavy', c: '#4A3024' }, step: [0.02, 0], pose: ['rest', 'rest'], home: 'rest', moves: ['rest', 'clasp', 'rest/hip', 'fold'], label: 'A relaxed dress with a denim jacket',
         build: [0.99, 1.0], face: { cheek: 0.02, chin: 0.002 }, eyes: 1, lips: 0.9, cheer: 0.6, acc: { shades: 'up', frames: ROUND },
         wear: { kind: 'dress', cut: 'day', len: 'midi', mat: 'cloth', tiers: 3, over: 'denim' }, c: { main: 'Heather Mauve', extra: '#7E9CC0' }, shoes: { kind: 'flat', c: '#D8C2A8', lift: 0.012 } },
-      { sex: 'm', body: ['m', 'mo', 0.25], skin: '#DFB194', hair: { style: 'crop', c: '#2A201A' }, pose: ['rest', 'rest'], home: 'hip/rest', moves: ['hip/rest', 'rest', 'fold', 'clasp'], label: 'A linen shirt, shorts and loafers',
+      { sex: 'm', body: ['m', 'mo', 0.25], skin: '#DFB194', hair: { style: 'crop', c: '#2A201A' }, step: [-0.006, 0.024], pose: ['rest', 'rest'], home: 'hip/rest', moves: ['hip/rest', 'rest', 'fold', 'clasp'], label: 'A linen shirt, shorts and loafers',
         build: [0.98, 1.01], face: { long: 0.02, jaw: -0.01, chin: 0.002 }, beard: 0.08, eyes: 1, cheer: 0.55, acc: { shades: 'on', watch: 'L', chain: 'fine' },
         wear: { kind: 'sep', top: { mat: 'cloth', ease: 0.012, collar: 'open', placket: true, sleeve: 0.5 }, legs: { belt: 6, short: true } }, c: { main: '#FFFFFF', second: 'Stone Sand', shirt: '#FBFAF6' }, shoes: { kind: 'loafer', c: '#8A6242' } },
     ],

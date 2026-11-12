@@ -266,7 +266,7 @@ void main() {
     float ax = abs(aUV.x);
     float corner = smoothstep(0.12, 0.30, ax) * (1.0 - smoothstep(0.42, 0.75, ax)) * (1.0 - smoothstep(0.06, 0.20, abs(aUV.y - 0.21)));
     float cheek = smoothstep(0.25, 0.5, ax) * (1.0 - smoothstep(0.75, 1.1, ax)) * smoothstep(0.18, 0.30, aUV.y) * (1.0 - smoothstep(0.36, 0.48, aUV.y));
-    p0.y += uSmile * (0.0070 * corner + 0.0032 * cheek);
+    p0.y += uSmile * (0.0070 * corner + 0.0040 * cheek);
     p0.x += uSmile * 0.0038 * corner * sign(aUV.x);
     p0.z += uSmile * (0.0032 * cheek - 0.0018 * corner);
   }
@@ -307,6 +307,7 @@ float shade(vec4 sc, vec2 px, float wide) {
 #define LIP_Y 0.2
 #define LIP_UP 0.040
 #define LIP_DN 0.056
+#define LIDREST 0.40
 varying vec3 vN; varying vec3 vW; varying vec2 vUV; varying vec4 vD; varying vec4 vL; varying vec3 vM;
 uniform mat4 uLVP;
 uniform vec3 uPal[8]; uniform vec3 uEye; uniform vec3 uKey; uniform vec3 uKeyC; uniform vec3 uSky; uniform vec3 uGround; uniform vec4 uFog; uniform vec2 uGhost;
@@ -367,18 +368,20 @@ void main() {
   if (mat > 0.55 && mat < 0.85) {                        // a real face: its make-up (x: the eyes at -.41 and +.41; y: the eyes' line .5, the lips' .2)
     vec2 f = vUV; float ax = abs(f.x); float lady = step(mat, 0.65); float S = uFace.w;
     // the cheeks: they colour with a smile
-    base = mix(base, base * vec3(1.03, 0.80, 0.78), (mix(0.14, 0.30, lady) + 0.14 * S) * smoothstep(0.34, 0.0, length(vec2((ax - 0.62) * 0.8, (f.y - 0.32 - 0.02 * S) * 1.5))));
+    base = mix(base, base * vec3(1.03, 0.82, 0.80), (mix(0.06, 0.22, lady) + 0.12 * S) * smoothstep(0.34, 0.0, length(vec2((ax - 0.62) * 0.8, (f.y - 0.32 - 0.02 * S) * 1.5))));
     // the brows (they lift a little with a smile)
     float bx = (ax - BROW_X) / BROW_W, by = BROW_Y + 0.006 + 0.008 * S + (BROW_ARCH + 0.006) * (1.0 - bx * bx) - 0.012 * max(bx, 0.0);
-    float bt = BROW_T * (1.0 + 0.45 * uLook.z);
-    float brow = smoothstep(bt * (1.0 - 0.5 * max(bx, 0.0)), 0.006, abs(f.y - by)) * step(abs(bx), 1.0) * (0.70 + 0.30 * noise(vec2(f.x * 260.0, f.y * 40.0)));
-    base = mix(base, uPal[1] * 0.46, brow * clamp(mix(0.70, 0.72, lady) + 0.14 * uLook.z, 0.0, 1.0));
+    float bt = BROW_T * (1.0 + 0.45 * uLook.z) * mix(1.0, 0.84, lady);
+    float thick = bt * (0.50 + 0.50 * smoothstep(-1.0, -0.40, bx)) * (1.0 - 0.74 * smoothstep(0.0, 1.0, bx));      // (fullest a third of the way out, a point at the tail)
+    float bh = noise(vec2((ax + (f.y - by) * 1.7) * 230.0, (f.y - 0.55 * ax) * 60.0));                          // (its hairs lean outward)
+    float brow = smoothstep(thick, thick * 0.30, abs(f.y - by)) * smoothstep(-1.0, -0.70, bx) * (1.0 - smoothstep(0.84, 1.0, bx)) * (0.80 + 0.20 * bh);
+    base = mix(base, uPal[1] * 0.46, brow * clamp(mix(0.64, 0.58, lady) + 0.14 * uLook.z, 0.0, 1.0));
     vec2 e = vec2((ax - EYE_X) / EYE_W, (f.y - EYE_Y) / EYE_H);
     float ring = length(e);
-    base = mix(base, base * vec3(0.80, 0.72, 0.72), smoothstep(1.9, 1.0, ring) * 0.35);                                   // the socket's own shade
+    base = mix(base, base * vec3(0.86, 0.80, 0.79), smoothstep(1.9, 1.0, ring) * 0.28);                                   // the socket's own shade
     float lid = smoothstep(1.30, 1.12, ring) * smoothstep(0.86, 1.02, ring);
-    base = mix(base, vec3(0.07, 0.05, 0.045), lid * smoothstep(-0.25, 0.25, e.y) * mix(0.42, 0.90, lady) * (0.7 + 0.3 * smoothstep(-0.2, 0.9, e.x)));
-    base = mix(base, base * vec3(0.72, 0.62, 0.60), lid * smoothstep(0.1, -0.5, e.y) * 0.55);
+    base = mix(base, vec3(0.07, 0.05, 0.045), lid * smoothstep(-0.25, 0.25, e.y) * mix(0.34, 0.80, lady) * (0.7 + 0.3 * smoothstep(-0.2, 0.9, e.x)));
+    base = mix(base, base * vec3(0.78, 0.69, 0.67), lid * smoothstep(0.1, -0.5, e.y) * 0.40);
     // the mouth: a smile is wider and its corners rise; a broad one parts the lips, and the teeth show
     // (the mesh lifts the corners itself: the paint only follows the lips it lies on; the lower lip stays, the upper
     // lip lifts off it and the upper teeth show in the mouth's own line)
@@ -399,8 +402,10 @@ void main() {
     float fullB = smoothstep(0.08, 1.0, uLook.x);
     float stub = 0.62 + 0.76 * grain(f * vec2(340.0, 250.0), 3.0);      // (a stubble is this shade alone: each hair too short to stand off the skin)
     base = mix(base, uPal[1] * 0.50 + base * 0.14, clamp(grow * (0.06 + 0.66 * fullB) * mix(stub, 1.0, 0.7 * fullB), 0.0, 1.0));
-    base = mix(base, lipC, lips * mix(0.55, mix(0.45, 0.92, uLook.w), lady));
-    float teeth = inx * smoothstep(0.0015, 0.007, open) * smoothstep(-0.002, 0.002, my) * smoothstep(0.0, 0.004, open - my);
+    base = mix(base, lipC, lips * mix(0.55, mix(0.42, 0.80, uLook.w), lady));
+    float part = inx * smoothstep(0.0, 0.0015, open) * smoothstep(-0.002, 0.002, my) * smoothstep(0.0, 0.004, open - my);      // (between lips that have just parted: the mouth's own dark, no white line)
+    base = mix(base, vec3(0.30, 0.13, 0.12), part);
+    float teeth = part * smoothstep(0.0055, 0.0110, open);
     base = mix(base, mix(vec3(0.34, 0.15, 0.14), vec3(0.96, 0.94, 0.90), smoothstep(1.0, 0.62, abs(mx))) * (0.80 + 0.20 * clamp((open - my) / max(open * 0.65, 0.0001), 0.0, 1.0)), teeth);      // (a little shade under the upper lip; no division by nothing where the mouth is shut)
     ao = mix(ao, 1.0, teeth * 0.85);                     // (teeth stand in the mouth's own crease: its shade is not theirs)
 #ifdef GRID
@@ -423,7 +428,7 @@ void main() {
     c = mix(c, vec3(0.015), smoothstep(0.42, 0.35, rr));
     base = c * (1.0 - 0.38 * smoothstep(0.02, 0.55, dir.y));
     glint = 1.0;
-    float shut = max(smoothstep(-0.05, 0.05, dir.y - mix(0.75, -0.55, uFace.z)), smoothstep(0.05, -0.05, dir.y + mix(0.84, 0.56, uFace.w)));      // (the upper lid; and the lower one, which a smile brings up)
+    float shut = max(smoothstep(-0.05, 0.05, dir.y - mix(LIDREST, -0.55, uFace.z)), smoothstep(0.05, -0.05, dir.y + mix(0.84, 0.56, uFace.w)));      // (the upper lid; and the lower one, which a smile brings up)
     if (shut > 0.0) { base = mix(base, uPal[0] * vec3(0.90, 0.80, 0.78), shut); glint = 1.0 - shut; mat = mix(mat, 0.0, step(0.5, shut)); }
   }
   base = pow(base, vec3(2.2));
@@ -457,9 +462,20 @@ void main() {
     } else {
     float strand = noise(vec2(vUV.x * 260.0, vUV.y * 5.0));
     base *= 0.72 + 0.5 * strand;
-    float fray = smoothstep(0.80, 1.0, vUV.y);
-    cover = 1.0 - fray * smoothstep(0.25, 0.75, noise(vec2(vUV.x * 190.0, vUV.y * 4.0)) + fray * 0.35);
-    if (mat > 1.1) { base = vec3(0.004); cover = smoothstep(0.0, 0.25, noise(vec2(vUV.x * 3.0, 0.5)) - vUV.y * 0.75 + 0.2) * (1.0 - smoothstep(0.3, 0.6, uFace.z)); }   // lashes
+    if (vUV.y > 1.5) {                                   // a hairline (2 at its edge .. 3 full hair): fine hairs that thicken into the hair, no saw's teeth
+      float hl = clamp(vUV.y - 2.0, 0.0, 1.0), fine = 0.62 * noise(vec2(vUV.x * 620.0, hl * 7.0)) + 0.38 * noise(vec2(vUV.x * 170.0, 3.7));
+      cover = smoothstep(-0.10, 0.10, fine - (1.0 - hl * 1.22));
+      base *= 0.86 + 0.14 * hl;
+    } else {                                             // the ends of hair that hangs: a soft, slightly uneven tip
+      float fray = smoothstep(0.93, 1.0, vUV.y);
+      cover = 1.0 - fray * smoothstep(0.30, 0.70, noise(vec2(vUV.x * 430.0, vUV.y * 3.0)) + (fray - 0.5) * 0.6);
+    }
+    if (mat > 1.1) {                                     // lashes: fine single hairs, each of its own length; a gent's are short
+      float gent = step(1.21, mat), lx = vUV.x * 2.6, id = floor(lx), fx = abs(fract(lx) - 0.5);
+      float tipAt = (0.42 + 0.50 * hash(vec2(id, 7.0))) * mix(0.78, 0.36, gent);
+      float w = mix(0.36, 0.26, gent) * clamp(1.0 - vUV.y / tipAt, 0.0, 1.0) + 0.02;
+      base = vec3(0.012, 0.009, 0.008); cover = step(vUV.y, tipAt) * smoothstep(w, w * 0.45, fx) * (1.0 - smoothstep(0.3, 0.6, uFace.z));
+    }
     }
   }
   else if (mat < 2.5) { spec = 0.035; gloss = 9.0; sheen = 0.20; base *= (0.93 + 0.14 * noise(vL.xy * 900.0 + vL.z * 700.0)) * (0.950 + 0.10 * grain(vec2(vL.x + vL.z * 0.7, vL.y) * 520.0, 1.0)); }             // wool, crepe, cotton: a weave's grain
@@ -477,6 +493,21 @@ void main() {
   else if (mat < 7.5) { spec = 0.30; gloss = 46.0; sheen = 0.08; mirror = 0.22; }                                                          // leather
   else if (mat < 8.5) { spec = 0.9; gloss = 60.0; mirror = 0.7; }                                                                          // metal
   else if (mat < 9.5) { spec = 0.7; gloss = 120.0; wrap = 0.3; mirror = 0.22; }                                                           // the wet of an eye
+  // Creases where cloth is bent. A sleeve and a trouser leg say where they are in vUV.y: 10 .. 20 a sleeve, 20 .. 30 a
+  // leg, and within it 5 = the elbow / the knee, a tenth to a centimetre along the limb (vUV.x: round it, .25 the
+  // front). Each crease is a fine dark line with a lit edge beside it, a little wavy, most on the side that folds.
+  float creaseN = 0.0;
+  if (mat > 1.5 && mat < 6.49 && vUV.y > 9.5 && vUV.y < 30.5) {
+    float kind = floor(vUV.y * 0.1), cs = (vUV.y - kind * 10.0 - 5.0) * 0.1, cu = vUV.x * 6.28318;
+    float side = kind < 1.5 ? 0.30 + 0.70 * (0.5 + 0.5 * sin(cu)) : 0.12 + 0.88 * (0.5 - 0.5 * sin(cu));      // (an elbow folds in front, a knee behind)
+    float w1 = 0.0055 * sin(cu * 2.0 + 1.3) + 0.0028 * sin(cu * 6.0 + 4.1), w2 = 0.0050 * sin(cu * 2.0 + 3.9) + 0.0030 * sin(cu * 5.0 + 0.7);
+    float wd = kind < 1.5 ? 0.0040 : 0.0052;
+    float c1 = exp(-pow((cs + 0.037 - w1) / wd, 2.0)), c2 = exp(-pow((cs + 0.013 - w2) / wd, 2.0)), c3 = exp(-pow((cs - 0.011 + w1) / wd, 2.0)), c4 = exp(-pow((cs - 0.036 + w2) / wd, 2.0));
+    float l1 = exp(-pow((cs + 0.037 - w1 - wd * 1.5) / wd, 2.0)), l2 = exp(-pow((cs + 0.013 - w2 - wd * 1.5) / wd, 2.0)), l3 = exp(-pow((cs - 0.011 + w1 - wd * 1.5) / wd, 2.0)), l4 = exp(-pow((cs - 0.036 + w2 - wd * 1.5) / wd, 2.0));
+    float dark = (0.75 * c1 + c2 + c3 + 0.7 * c4) * side, lit = (0.75 * l1 + l2 + l3 + 0.7 * l4) * side;
+    base *= 1.0 - 0.20 * dark + 0.07 * lit;
+    creaseN = (dark - lit) * 0.22;
+  }
   // Soft folds in cloth. How much: the part of its cloth's number after the point (0 .. .4). The surface leans to one
   // side and the other along the level direction, by a pattern that belongs to the cloth: laid out over a still
   // garment's own place, or (a piece that moves) over the grid it was cut on, so the folds go with the cloth.
@@ -493,6 +524,7 @@ void main() {
       N = normalize(N + T / tl * lean * fold * 0.17);
     }
   }
+  if (creaseN != 0.0) N = normalize(N + vec3(0.0, creaseN, 0.0));
   vec3 L = normalize(uKey), Lf = normalize(vec3(-uKey.x * 1.2, 0.25, 0.7)), Lr = normalize(vec3(-uKey.x * 0.6, 0.5, -1.0));
   float nl = dot(N, L), d = clamp((nl + wrap) / (1.0 + wrap), 0.0, 1.0), df = clamp(dot(N, Lf) * 0.5 + 0.5, 0.0, 1.0);
   // the key light's shadow: only where the surface faces the light (where it turns away the soft fall-off does the work)

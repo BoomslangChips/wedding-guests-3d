@@ -58,7 +58,7 @@ The looks (who wears what on which day) are the `LOOKS` table at the end of `js/
 
 - The guests stand in place: there is no walking.
 - Fingers keep one relaxed shape.
-- Clothes do not crease where an arm bends.
+- Creases at elbows and behind knees are drawn on the cloth; they do not deepen as an arm bends.
 - All faces are variations of one head.
 
 ## Credits and licence
